@@ -1,0 +1,10 @@
+/references/
+
+# Local face-image datasets
+/train/
+/test/
+
+# Course PDFs copied outside references/
+all.pdf
+PR_2026_*.pdf
+/CH[0-9]*.pdf
