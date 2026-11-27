@@ -234,7 +234,3 @@ By the end of the project, each team should deliver the following.
 8. A written project report.
 
 Alongside producing program output, students are expected to understand the methods, design sound experiments, compare approaches, and draw their own observations and conclusions from the experimental results.
-
-## 13. Contact Information
-
-For questions about the project, team formation, image datasets, or how to carry out the work, contact the teaching assistant at <cvrlab308@gmail.com>.
