@@ -12,6 +12,8 @@
 
 執行 `setup; run_pca_analysis;` 可檢查本機訓練資料的 PCA 秩、保留維度及解釋變異。設定及逐折擬合範例請見 [PCA 特徵擷取](docs/zh-TW/pca-feature-extraction.md)。
 
+執行 `setup; run_lda_analysis;` 可檢查本機訓練資料的 Fisher LDA 秩、正則化與一維投影後的類別分布。使用 `fitLDA(XTrain, yTrain)` 擬合，再以 `transformLDA(ldaModel, X)` 轉換特徵。設定與逐折範例請見 [Fisher LDA 特徵擷取](docs/zh-TW/fisher-lda-feature-extraction.md)。
+
 ## English overview
 
 This Pattern Recognition final project uses MATLAB to build a gender recognition system from face images and compare the recognition performance and computational cost of four feature reduction and classifier combinations.
@@ -28,10 +30,11 @@ This Pattern Recognition final project uses MATLAB to build a gender recognition
 | Dataset Loading and Preprocessing | [資料載入與前處理](docs/zh-TW/data-preprocessing.md) | [Dataset loading and preprocessing](docs/en/data-preprocessing.md) |
 | Five-Fold Dataset Partitioning | [資料集分折](docs/zh-TW/dataset-partitioning.md) | [Dataset partitioning](docs/en/dataset-partitioning.md) |
 | PCA Feature Extraction | [PCA 特徵擷取](docs/zh-TW/pca-feature-extraction.md) | [PCA feature extraction](docs/en/pca-feature-extraction.md) |
+| Fisher LDA Feature Extraction | [Fisher LDA 特徵擷取](docs/zh-TW/fisher-lda-feature-extraction.md) | [Fisher LDA feature extraction](docs/en/fisher-lda-feature-extraction.md) |
 
 ### MATLAB setup
 
-Dataset loading, preprocessing, partitioning, PCA, and their tests were verified on Windows with MATLAB R2026a Update 5. These modules use base MATLAB.
+Dataset loading, preprocessing, partitioning, PCA, Fisher LDA, and their tests were verified on Windows with MATLAB R2026a Update 5. These modules use base MATLAB.
 
 Place the local training PNGs directly in `train/`, or pass a different local directory to the analysis functions. Keep datasets, generated artifacts, and private metadata local.
 
@@ -42,6 +45,7 @@ setup;
 run_dataset_analysis;  % Uses the local train/ directory
 run_partition_analysis;  % Reports aggregate five-fold training statistics
 run_pca_analysis;  % Reports whole-training PCA dimensions and explained variance
+run_lda_analysis;  % Reports whole-training Fisher LDA rank and projected class statistics
 run_tests;
 ```
 
@@ -51,7 +55,10 @@ Pass a local path and adjust the analysis options as needed.
 run_dataset_analysis("path/to/training-data", struct('ImageSize', [96 96]));
 run_partition_analysis("path/to/training-data", struct('RandomSeed', 17));
 run_pca_analysis("path/to/training-data", struct('NumComponents', 40), struct(), 1);
+run_lda_analysis("path/to/training-data", struct('Regularization', 1e-2), struct(), 1);
 ```
+
+Use `ldaModel = fitLDA(XTrain, yTrain)` to fit a binary projection and `Z = transformLDA(ldaModel, X)` to project an aligned feature matrix to one column. Fit a separate model on each fold’s training rows and reuse it for that fold’s validation rows. [Fisher LDA feature extraction](docs/en/fisher-lda-feature-extraction.md)
 
 From a terminal with MATLAB on PATH, run the synthetic suite with `matlab -batch "run_tests;"`. The tests create and clean up their own temporary fixtures.
 
@@ -61,6 +68,7 @@ From a terminal with MATLAB on PATH, run the synthetic suite with `matlab -batch
 | `src/data/` | Dataset loading, filename parsing, and preprocessing |
 | `src/validation/` | Shared cross-validation fold generation |
 | `src/features/pca/` | PCA fitting and projection |
+| `src/features/lda/` | Supervised Fisher LDA fitting and projection |
 | `scripts/` | Executable analysis functions |
 | `tests/` | Synthetic MATLAB tests |
 | `docs/en/`, `docs/zh-TW/` | Bilingual requirements and implementation guides |
