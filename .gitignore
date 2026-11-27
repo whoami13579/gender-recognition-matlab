@@ -8,3 +8,15 @@
 all.pdf
 PR_2026_*.pdf
 /CH[0-9]*.pdf
+
+# Local results, private metadata, and temporary files
+/results/
+/tmp/
+*.mat
+
+# MATLAB editor backups and generated build output
+*.asv
+*.m~
+*.mex*
+slprj/
+codegen/
