@@ -8,6 +8,8 @@
 
 在 Windows 上以 MATLAB R2026a 驗證資料載入、影像前處理及測試，無需額外工具箱。將訓練 PNG 放在本機 `train/`，或提供其他本機路徑。從儲存庫根目錄執行 `setup`、`run_dataset_analysis` 及 `run_tests`。完整設定與介面請見[資料載入與前處理](docs/zh-TW/data-preprocessing.md)。
 
+執行 `setup; run_partition_analysis;` 可檢查本機訓練資料的五折切分、類別分布及受試者識別碼是否重疊。設定與共用索引請見[資料集分折](docs/zh-TW/dataset-partitioning.md)。
+
 ## English overview
 
 This Pattern Recognition final project uses MATLAB to build a gender recognition system from face images and compare the recognition performance and computational cost of four feature reduction and classifier combinations.
@@ -22,25 +24,28 @@ This Pattern Recognition final project uses MATLAB to build a gender recognition
 | Project Requirements | [專題說明](docs/zh-TW/project-requirements.md) | [Project requirements](docs/en/project-requirements.md) |
 | Lecture Reference and System Architecture | [講義對照與系統架構](docs/zh-TW/lecture-reference.md) | [Lecture reference and system architecture](docs/en/lecture-reference.md) |
 | Dataset Loading and Preprocessing | [資料載入與前處理](docs/zh-TW/data-preprocessing.md) | [Dataset loading and preprocessing](docs/en/data-preprocessing.md) |
+| Five-Fold Dataset Partitioning | [資料集分折](docs/zh-TW/dataset-partitioning.md) | [Dataset partitioning](docs/en/dataset-partitioning.md) |
 
 ### MATLAB setup
 
-Dataset loading, preprocessing, and tests were verified on Windows with MATLAB R2026a Update 5. These modules use base MATLAB.
+Dataset loading, preprocessing, partitioning, and tests were verified on Windows with MATLAB R2026a Update 5. These modules use base MATLAB.
 
-Place the local training PNGs directly in `train/`, or pass a different local directory to `run_dataset_analysis`. Keep datasets, generated artifacts, and private metadata local.
+Place the local training PNGs directly in `train/`, or pass a different local directory to either analysis function. Keep datasets, generated artifacts, and private metadata local.
 
 Run these commands from the repository root in MATLAB.
 
 ```matlab
 setup;
 run_dataset_analysis;  % Uses the local train/ directory
+run_partition_analysis;  % Reports aggregate five-fold training statistics
 run_tests;
 ```
 
-Pass a local path and a different resolution as needed.
+Pass a local path and adjust the analysis options as needed.
 
 ```matlab
 run_dataset_analysis("path/to/training-data", struct('ImageSize', [96 96]));
+run_partition_analysis("path/to/training-data", struct('RandomSeed', 17));
 ```
 
 From a terminal with MATLAB on PATH, run the synthetic suite with `matlab -batch "run_tests;"`. The tests create and clean up their own temporary fixtures.
@@ -49,6 +54,7 @@ From a terminal with MATLAB on PATH, run the synthetic suite with `matlab -batch
 |---|---|
 | `setup.m`, `run_tests.m` | MATLAB path setup and test entry point |
 | `src/data/` | Dataset loading, filename parsing, and preprocessing |
+| `src/validation/` | Shared cross-validation fold generation |
 | `scripts/` | Executable analysis functions |
 | `tests/` | Synthetic MATLAB tests |
 | `docs/en/`, `docs/zh-TW/` | Bilingual requirements and implementation guides |
