@@ -1,7 +1,7 @@
 function preprocessor = fitPreprocessor(trainingImages, config)
 %FITPREPROCESSOR Validate options and fix the expected output image size.
 %   CONFIG fields are Grayscale (true), ImageSize ([64 64], [] preserves
-%   resolution), OutputType ("double"), and IntensityScaling ("unit").
+%   resolution), OutputType ("double"), and IntensityScaling ("unit" only).
 %   The current operations are deterministic per image.
 
 arguments
@@ -41,7 +41,7 @@ if ~isnumeric(targetSize) || ~isreal(targetSize) || issparse(targetSize) ...
 end
 options.ImageSize = double(targetSize);
 options.OutputType = menuValue(options.OutputType, ["double", "single"], 'OutputType');
-options.IntensityScaling = menuValue(options.IntensityScaling, ["unit", "native"], 'IntensityScaling');
+options.IntensityScaling = menuValue(options.IntensityScaling, "unit", 'IntensityScaling');
 
 outputSize = preprocessedImageSize(trainingImages{1}, options, 1);
 for k = 2:numel(trainingImages)

@@ -17,6 +17,10 @@ if ~all(isfield(preprocessor, {'Options', 'OutputImageSize', 'NumFeatures'}))
 end
 
 options = preprocessor.Options;
+if ~isequal(options.IntensityScaling, "unit")
+    error('genderRecognition:InvalidConfig', ...
+        'IntensityScaling must be "unit". Refit the preprocessor with unit scaling.');
+end
 numImages = numel(images);
 if outputFormat == "features"
     output = zeros(numImages, preprocessor.NumFeatures, options.OutputType);
@@ -42,9 +46,6 @@ for k = 1:numImages
 
     % Keep unit intensities in range even in the presence of roundoff.
     pixels = min(max(pixels, 0), 1);
-    if options.IntensityScaling == "native" && isinteger(source)
-        pixels = pixels .* cast(intmax(class(source)), options.OutputType);
-    end
 
     if outputFormat == "features"
         output(k, :) = pixels(:).';

@@ -129,6 +129,11 @@ classdef TestDatasetLoading < matlab.unittest.TestCase
             testCase.verifyEqual(stats.FeatureMatrixSize, [3 4096]);
             testCase.verifyEqual(stats.LabelVectorSize, [3 1]);
             testCase.verifyEqual(stats.ClassCounts, [2 1]);
+            testCase.verifyEqual(stats.NumSubjects, 2);
+            testCase.verifyEqual(stats.SubjectCounts, [1 1]);
+            testCase.verifyEqual(stats.CrossClassQualifiedIDCollisions, 0);
+            testCase.verifyTrue(contains(report, ...
+                'Cross-class qualified ID collisions: 0 (filename-derived IDs)'));
             testCase.verifyEqual(stats.ImagesPerSubjectDistribution, [1 1; 2 1]);
             testCase.verifyFalse(stats.MatchesOfficialTrainingCounts);
             testCase.verifyFalse(contains(report, '.png'));

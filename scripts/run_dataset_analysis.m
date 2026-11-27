@@ -26,7 +26,8 @@ stats.MatchesOfficialTrainingCounts = isequal(stats.ClassCounts, [100 100]);
 maleSubjects = unique(subjectIDs(y == 0));
 femaleSubjects = unique(subjectIDs(y == 1));
 stats.SubjectCounts = [numel(maleSubjects), numel(femaleSubjects)];
-stats.CrossClassSubjectCollisions = numel(intersect(maleSubjects, femaleSubjects));
+% Prefixes encode the class, so this checks filename-derived IDs only.
+stats.CrossClassQualifiedIDCollisions = numel(intersect(maleSubjects, femaleSubjects));
 [subjects, ~, groups] = unique(subjectIDs);
 stats.NumSubjects = numel(subjects);
 subjectImageCounts = accumarray(groups, 1);
@@ -57,7 +58,8 @@ else
 end
 fprintf('\nUnique subject IDs: %d (%d male, %d female)\n', ...
     stats.NumSubjects, stats.SubjectCounts(1), stats.SubjectCounts(2));
-fprintf('Cross-class subject ID collisions: %d\n', stats.CrossClassSubjectCollisions);
+fprintf('Cross-class qualified ID collisions: %d (filename-derived IDs)\n', ...
+    stats.CrossClassQualifiedIDCollisions);
 for k = 1:size(stats.ImagesPerSubjectDistribution, 1)
     fprintf('Images per subject: %d (%d subjects)\n', ...
         stats.ImagesPerSubjectDistribution(k, :));

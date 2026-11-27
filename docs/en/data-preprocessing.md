@@ -23,7 +23,7 @@ run_tests;
 ```
 
 - The loader expects a flat directory of labeled PNGs. It accepts opaque grayscale and RGB PNGs and reports errors for unexpected entries, malformed names, duplicate identifiers, unreadable images, indexed colors, and transparency. Counts specific to the official training set are checked separately by the analysis.
-- The filename patterns are `man_<person>_<image>.png` and `woman_<person>_<image>.png`, with decimal digits for both numbers. The parser accepts letter case variants and removes redundant leading zeros from numeric IDs. The example above is synthetic. Class-qualified IDs such as `man_900001` and `woman_900001` refer to different subjects. The sample ID appends the image ID to the subject ID.
+- The filename patterns are `man_<person>_<image>.png` and `woman_<person>_<image>.png`, with decimal digits for both numbers. The parser accepts letter case variants and removes redundant leading zeros from numeric IDs. The example above is synthetic. Class-qualified IDs such as `man_900001` and `woman_900001` are distinct identifiers even when their numeric suffixes match. The sample ID appends the image ID to the subject ID.
 - Files are ordered lexicographically by case-insensitive filename. `images` is an N × 1 cell array. `y` is an N × 1 double column with male = `0` and female = `1`. Female is the positive class for subsequent scoring, ROC and AUC. `subjectIDs` is an N × 1 string column.
 - Row `i` in `metadata` corresponds to `images{i}`, `y(i)`, `subjectIDs(i)` and eventually `X(i,:)`. The table contains `SampleID`, `SubjectID`, `ImageID`, `Label`, `Filename`, `Height`, `Width`, `Channels` and `PixelType`. Keep the table and the real identifiers local. Reliable subject grouping requires the dataset's filename convention. Unsupported names raise an error without inventing an identity.
 
@@ -42,9 +42,9 @@ processedImages = transformImages(preprocessor, images, "images");
 | `Grayscale` | `true` | Logical scalar. `false` keeps each image's existing channel count. |
 | `ImageSize` | `[64 64]` | A row vector `[height width]` of positive integers, or `[]` to keep the original resolution. |
 | `OutputType` | `"double"` | `"double"` or `"single"`. |
-| `IntensityScaling` | `"unit"` | `"unit"` scales unsigned inputs by the maximum for their type. `"native"` returns the float output on the source type's scale. |
+| `IntensityScaling` | `"unit"` | `"unit"` is the only supported value. Other values raise a configuration error. |
 
-Images must be nonempty, full, real grayscale or RGB arrays of type `logical`, `uint8`, `uint16`, `single` or `double`. Floating-point inputs must already be finite and in [0, 1]. Processing converts pixels to floating point, applies grayscale conversion when requested, and resizes with bilinear interpolation and antialiasing. `"native"` restores the unsigned input scale of [0, 255] or [0, 65535] after these operations. Logical and float inputs retain unit scaling. With no resizing, images must have the same height and width. With grayscale disabled, the batch must also have a common channel count. Held-out inputs must produce the same output shape as the fit inputs.
+Images must be nonempty, full, real grayscale or RGB arrays of type `logical`, `uint8`, `uint16`, `single` or `double`. Floating-point inputs must already be finite and in [0, 1]. Processing converts all supported inputs to floating-point values in [0, 1]. Unsigned integers are divided by the maximum for their type, and logical values map to 0 and 1. This common scale prevents differences in source encoding from creating artificial differences in the features. Processing then applies grayscale conversion when requested and resizes with bilinear interpolation and antialiasing. With no resizing, images must have the same height and width. With grayscale disabled, the batch must also have a common channel count. Held-out inputs must produce the same output shape as the fit inputs.
 
 By default `transformImages` returns an N × D matrix in the order supplied, with one image per row. Use `"images"` to obtain the processed N × 1 cell array. For a processed H × W × C image, MATLAB column-major vectorization places pixel `(r,c,k)` at feature index `r + (c-1)*H + (k-1)*H*W`, using one-based indices. Channels are concatenated in image order.
 
@@ -74,13 +74,16 @@ These signatures are proposals for the downstream issues. `Z` is N × K, and bot
 |---|---|
 | Images | 200 PNGs, 100 male and 100 female |
 | Original size and type | 640 × 640 × 3, RGB `uint8` |
-| Subject IDs derived from names | 100, 50 per class, two images per subject, zero cross-class ID collisions |
+| Subject IDs derived from names | 100, 50 per class, two images per subject ID |
+| `CrossClassQualifiedIDCollisions` | 0 overlaps between generated class-qualified IDs |
 | Invalid or unreadable images | 0 |
 | Default processed representation | 64 × 64 grayscale, 4,096 features per image |
 | Default output | `X` is 200 × 4,096 `double`, `y` is 200 × 1 |
 | Feature-matrix memory | 6,553,600 bytes (6.25 MiB), excluding input images and temporary arrays |
 
-Subject grouping relies on the filename convention. The 64 × 64 baseline and label encoding are project decisions. Original-resolution grayscale would retain 409,600 features per image and require 625 MiB for the same 200 images in a double feature matrix. Dimensions multiply with spatial resolution and channel count, so larger images increase storage and future fitting and inference costs.
+Subject grouping relies on the filename convention. `CrossClassQualifiedIDCollisions` counts exact overlaps between the class-qualified identifier sets. Zero is expected because the class prefixes differ. Establishing real-world identity uniqueness, cross-class identity overlap, or label correctness requires independent evidence.
+
+The 64 × 64 baseline and label encoding are project decisions. Original-resolution grayscale would retain 409,600 features per image and require 625 MiB for the same 200 images in a double feature matrix. Dimensions multiply with spatial resolution and channel count, so larger images increase storage and future fitting and inference costs.
 
 ## Tests and lecture references
 

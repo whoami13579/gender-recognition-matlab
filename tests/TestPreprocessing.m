@@ -41,32 +41,47 @@ classdef TestPreprocessing < matlab.unittest.TestCase
             testCase.verifyEqual(X, [0 0.125 0.25 0.375 0.5 0.625 0.75 0.875 1 1 1 1]);
         end
 
-        function scalesUnsignedIntensitiesAndSupportsSingle(testCase)
-            images = {uint8([0 128 255]); uint16([0 32768 65535])};
-            config = struct('ImageSize', [], 'OutputType', "single");
-            model = fitPreprocessor(images, config);
-            X = transformImages(model, images);
-            testCase.verifyClass(X, 'single');
-            testCase.verifyEqual(X, single([0 128/255 1; 0 32768/65535 1]));
+        function scalesMixedInputTypesToUnitRange(testCase)
+            images = {logical([0 0 1]); uint8([0 128 255]); uint16([0 32768 65535]); ...
+                single([0 0.5 1]); double([0 0.5 1])};
+            quantizationTolerance = [0.5/255; 0.5/65535; 0; 0];
+            for outputType = ["single", "double"]
+                config = struct('ImageSize', [], 'OutputType', outputType, 'IntensityScaling', "unit");
+                model = fitPreprocessor(images, config);
+                X = transformImages(model, images);
+                testCase.verifyClass(X, char(outputType));
+                testCase.verifyEqual(X(:, [1 3]), cast(repmat([0 1], numel(images), 1), outputType));
 
-            config.IntensityScaling = "native";
-            nativeModel = fitPreprocessor(images, config);
-            native = transformImages(nativeModel, images);
-            testCase.verifyClass(native, 'single');
-            testCase.verifyEqual(native, single([0 128 255; 0 32768 65535]));
+                % Logical inputs have no intermediate intensity.
+                midpointError = abs(double(X(2:end, 2)) - 0.5);
+                tolerance = quantizationTolerance + double(eps(char(outputType)));
+                testCase.verifyLessThanOrEqual(midpointError, tolerance);
+                testCase.verifyTrue(all(X >= 0 & X <= 1, 'all'));
+            end
         end
 
-        function retainsNativeScaleAfterRgbConversionAndResizing(testCase)
+        function keepsUnitScaleAfterRgbConversionAndResizing(testCase)
+            black = zeros(4, 4, 3, 'uint8');
             white = repmat(uint16(65535), 4, 4, 3);
-            model = fitPreprocessor({white}, struct('ImageSize', [2 2], 'IntensityScaling', 'native'));
-            X = transformImages(model, {white});
-            testCase.verifyEqual(X, repmat(65535, 1, 4), 'AbsTol', 1e-9);
+            images = {black; white};
+            model = fitPreprocessor(images, struct('ImageSize', [2 2]));
+            X = transformImages(model, images);
+            testCase.verifyEqual(X, [zeros(1, 4); ones(1, 4)], 'AbsTol', 1e-14);
+            testCase.verifyTrue(all(X >= 0 & X <= 1, 'all'));
         end
 
-        function supportsLogicalAndUnitFloatInput(testCase)
-            images = {logical([0 1 0]); single([0 0.5 1])};
-            model = fitPreprocessor(images, struct('ImageSize', []));
-            testCase.verifyEqual(transformImages(model, images), [0 1 0; 0 0.5 1]);
+        function rejectsUnsupportedIntensityScaling(testCase)
+            images = {uint8([0 255])};
+            for scaling = ["native", "standardize"]
+                config = struct('IntensityScaling', scaling);
+                testCase.verifyError(@() fitPreprocessor(images, config), ...
+                    'genderRecognition:InvalidConfig');
+            end
+
+            legacyModel = fitPreprocessor(images);
+            legacyModel.Options.IntensityScaling = "native";
+            testCase.verifyError(@() transformImages(legacyModel, images), ...
+                'genderRecognition:InvalidConfig');
         end
 
         function appliesFittedRepresentationIndependentlyOfBatch(testCase)
@@ -87,7 +102,7 @@ classdef TestPreprocessing < matlab.unittest.TestCase
             invalid = {[], struct('UnknownOption', 1), struct('Grayscale', 1), ...
                 struct('ImageSize', [0 64]), struct('ImageSize', [64; 64]), ...
                 struct('ImageSize', [Inf 4]), struct('ImageSize', [2 2.5]), ...
-                struct('OutputType', 'uint8'), struct('IntensityScaling', 'standardize')};
+                struct('OutputType', 'uint8')};
             for k = 1:numel(invalid)
                 testCase.verifyError(@() fitPreprocessor({uint8(1)}, invalid{k}), ...
                     'genderRecognition:InvalidConfig');
