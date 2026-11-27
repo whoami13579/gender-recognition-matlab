@@ -10,6 +10,8 @@
 
 執行 `setup; run_partition_analysis;` 可檢查本機訓練資料的五折切分、類別分布及受試者識別碼是否重疊。設定與共用索引請見[資料集分折](docs/zh-TW/dataset-partitioning.md)。
 
+執行 `setup; run_pca_analysis;` 可檢查本機訓練資料的 PCA 秩、保留維度及解釋變異。設定及逐折擬合範例請見 [PCA 特徵擷取](docs/zh-TW/pca-feature-extraction.md)。
+
 ## English overview
 
 This Pattern Recognition final project uses MATLAB to build a gender recognition system from face images and compare the recognition performance and computational cost of four feature reduction and classifier combinations.
@@ -25,12 +27,13 @@ This Pattern Recognition final project uses MATLAB to build a gender recognition
 | Lecture Reference and System Architecture | [講義對照與系統架構](docs/zh-TW/lecture-reference.md) | [Lecture reference and system architecture](docs/en/lecture-reference.md) |
 | Dataset Loading and Preprocessing | [資料載入與前處理](docs/zh-TW/data-preprocessing.md) | [Dataset loading and preprocessing](docs/en/data-preprocessing.md) |
 | Five-Fold Dataset Partitioning | [資料集分折](docs/zh-TW/dataset-partitioning.md) | [Dataset partitioning](docs/en/dataset-partitioning.md) |
+| PCA Feature Extraction | [PCA 特徵擷取](docs/zh-TW/pca-feature-extraction.md) | [PCA feature extraction](docs/en/pca-feature-extraction.md) |
 
 ### MATLAB setup
 
-Dataset loading, preprocessing, partitioning, and tests were verified on Windows with MATLAB R2026a Update 5. These modules use base MATLAB.
+Dataset loading, preprocessing, partitioning, PCA, and their tests were verified on Windows with MATLAB R2026a Update 5. These modules use base MATLAB.
 
-Place the local training PNGs directly in `train/`, or pass a different local directory to either analysis function. Keep datasets, generated artifacts, and private metadata local.
+Place the local training PNGs directly in `train/`, or pass a different local directory to the analysis functions. Keep datasets, generated artifacts, and private metadata local.
 
 Run these commands from the repository root in MATLAB.
 
@@ -38,6 +41,7 @@ Run these commands from the repository root in MATLAB.
 setup;
 run_dataset_analysis;  % Uses the local train/ directory
 run_partition_analysis;  % Reports aggregate five-fold training statistics
+run_pca_analysis;  % Reports whole-training PCA dimensions and explained variance
 run_tests;
 ```
 
@@ -46,6 +50,7 @@ Pass a local path and adjust the analysis options as needed.
 ```matlab
 run_dataset_analysis("path/to/training-data", struct('ImageSize', [96 96]));
 run_partition_analysis("path/to/training-data", struct('RandomSeed', 17));
+run_pca_analysis("path/to/training-data", struct('NumComponents', 40), struct(), 1);
 ```
 
 From a terminal with MATLAB on PATH, run the synthetic suite with `matlab -batch "run_tests;"`. The tests create and clean up their own temporary fixtures.
@@ -55,6 +60,7 @@ From a terminal with MATLAB on PATH, run the synthetic suite with `matlab -batch
 | `setup.m`, `run_tests.m` | MATLAB path setup and test entry point |
 | `src/data/` | Dataset loading, filename parsing, and preprocessing |
 | `src/validation/` | Shared cross-validation fold generation |
+| `src/features/pca/` | PCA fitting and projection |
 | `scripts/` | Executable analysis functions |
 | `tests/` | Synthetic MATLAB tests |
 | `docs/en/`, `docs/zh-TW/` | Bilingual requirements and implementation guides |

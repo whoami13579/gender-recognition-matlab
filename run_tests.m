@@ -1,5 +1,5 @@
 function results = run_tests
-%RUN_TESTS Run all synthetic dataset, preprocessing, and partitioning tests.
+%RUN_TESTS Run all synthetic project tests.
 root = fileparts(mfilename('fullpath'));
 setup;
 results = runtests(fullfile(root, 'tests'));
