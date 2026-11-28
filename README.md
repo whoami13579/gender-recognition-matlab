@@ -20,6 +20,8 @@
 
 執行 `setup; run_evaluation_analysis;` 可用合成資料檢查準確率、ROC、AUC、參數量與計時。將本機輸出目錄傳給分析函式即可匯出 JSON 與 CSV。詳見[評估指標與效能量測](docs/zh-TW/evaluation-and-benchmarking.md)。
 
+執行 `setup; run_cross_validation;` 可使用本機 `train/` 完成四種方法的固定基準五折實驗。巢狀調參、輸出重載與實測結果請見[交叉驗證實驗](docs/zh-TW/cross-validation-experiments.md)。
+
 ## English overview
 
 This Pattern Recognition final project uses MATLAB to build a gender recognition system from face images and compare the recognition performance and computational cost of four feature reduction and classifier combinations.
@@ -40,6 +42,7 @@ This Pattern Recognition final project uses MATLAB to build a gender recognition
 | Gaussian Bayes Classifier | [高斯貝氏分類器](docs/zh-TW/gaussian-bayes-classifier.md) | [Gaussian Bayes classifier](docs/en/gaussian-bayes-classifier.md) |
 | MLP Classifier | [多層感知器分類器](docs/zh-TW/mlp-classifier.md) | [MLP classifier](docs/en/mlp-classifier.md) |
 | Evaluation and Benchmarking | [評估指標與效能量測](docs/zh-TW/evaluation-and-benchmarking.md) | [Evaluation and benchmarking](docs/en/evaluation-and-benchmarking.md) |
+| Cross-Validation Experiments | [交叉驗證實驗](docs/zh-TW/cross-validation-experiments.md) | [Cross-validation experiments](docs/en/cross-validation-experiments.md) |
 
 ### MATLAB setup
 
@@ -82,6 +85,13 @@ Use `metrics = evaluateClassification(yTrue, yPred, scores)` to evaluate supplie
 
 From a terminal with MATLAB on PATH, run the synthetic suite with `matlab -batch "run_tests;"`. The tests create and clean up their own temporary fixtures.
 
+Run the fixed baseline and the optional nested search as separate batch jobs from the repository root. Each writes a new local run under `results/cross-validation/`.
+
+```powershell
+matlab -wait -batch "setup; run_cross_validation('train');"
+matlab -wait -batch "setup; run_cross_validation('train',struct('Mode','nested'));"
+```
+
 | Path | Purpose |
 |---|---|
 | `setup.m`, `run_tests.m` | MATLAB path setup and test entry point |
@@ -91,6 +101,7 @@ From a terminal with MATLAB on PATH, run the synthetic suite with `matlab -batch
 | `src/features/lda/` | Supervised Fisher LDA fitting and projection |
 | `src/classifiers/bayes/` | Gaussian Bayes fitting and prediction |
 | `src/classifiers/mlp/` | MLP fitting and prediction |
+| `src/pipelines/` | Reusable pipelines, shared five-fold runner, and training-only model selection |
 | `src/evaluation/` | Shared metrics, parameter summaries, benchmark timing, and result export |
 | `scripts/` | Executable analysis functions |
 | `tests/` | Synthetic MATLAB tests |

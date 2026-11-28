@@ -13,7 +13,9 @@ classdef TestBenchmarking < matlab.unittest.TestCase
             sorted = sort(samples);
             independentMean = sum(samples) / 4;
             independentStd = sqrt(sum((samples - independentMean).^2) / 3);
-            testCase.verifyEqual(timing.MedianSeconds, (sorted(2) + sorted(3)) / 2);
+            % Equivalent midpoint computations can differ by one rounding step.
+            testCase.verifyEqual(timing.MedianSeconds, (sorted(2) + sorted(3)) / 2, ...
+                'AbsTol', eps(max(samples)));
             testCase.verifyEqual(timing.MeanSeconds, independentMean);
             testCase.verifyEqual(timing.StdSeconds, independentStd, 'AbsTol', eps(max(samples)));
             testCase.verifyEqual(timing.MinSeconds, sorted(1));
