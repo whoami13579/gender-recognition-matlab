@@ -1,14 +1,18 @@
-function plotCrossValidationRun(results, directory, foldROC)
+function plotCrossValidationRun(results, directory, foldROC, context)
 %PLOTCROSSVALIDATIONRUN Export comparisons from in-memory or reloaded records.
 arguments
     results struct
     directory
     foldROC (1,1) logical = false
+    context (1,1) string = ""
 end
 makeDirectory(directory);
 titlePrefix = upperFirst(string(results.Config.Mode));
 if string(results.Status) ~= "complete"
     titlePrefix = titlePrefix + " (incomplete)";
+end
+if strlength(context) > 0
+    titlePrefix = context;
 end
 names = replace(upper(replace(results.Methods, "-", " + ")), "BAYES", "Bayes");
 colors = [0.00 0.35 0.64; 0.78 0.31 0.07; 0.05 0.48 0.37; 0.50 0.27 0.64];

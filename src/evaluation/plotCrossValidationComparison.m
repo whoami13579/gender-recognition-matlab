@@ -1,5 +1,11 @@
-function plotCrossValidationComparison(baseline, nested, directory)
+function plotCrossValidationComparison(baseline, nested, directory, context)
 %PLOTCROSSVALIDATIONCOMPARISON Compare complete runs using identical folds.
+arguments
+    baseline struct
+    nested struct
+    directory
+    context (1,1) string = ""
+end
 if string(baseline.Config.Mode) ~= "baseline" || string(nested.Config.Mode) ~= "nested" || ...
         string(baseline.Status) ~= "complete" || string(nested.Status) ~= "complete" || ...
         ~isequal(baseline.Methods, nested.Methods) || ...
@@ -35,5 +41,8 @@ for metric = ["Accuracy", "AUC"]
         'Orientation', 'horizontal');
 end
 title(layout, 'Baseline and nested outer results (mean ± fold SD)');
+if strlength(context) > 0
+    subtitle(layout, context);
+end
 saveCVFigure(fig, directory, 'baseline-vs-nested');
 end

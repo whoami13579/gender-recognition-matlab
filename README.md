@@ -2,6 +2,14 @@
 
 [繁體中文導覽](#繁體中文導覽) · [English overview](#english-overview)
 
+## Live MATLAB demo · 現場展示
+
+From the repository root, open the demo menu with `setup; run_demo;`. Run `run_demo("quick", BaselineRun=baselineDir)` with the selected local baseline directory to reuse the saved cross-validation results and frozen models. The official independent test metrics are pending.
+
+從儲存庫根目錄執行 `setup; run_demo;` 開啟選單。以本機基準實驗目錄設定 `baselineDir`，執行 `run_demo("quick", BaselineRun=baselineDir)` 重用已存交叉驗證與凍結模型。正式獨立測試指標待補。
+
+[Demo and presentation guide](docs/en/demo-and-oral-presentation.md) · [展示與報告操作指南](docs/zh-TW/demo-and-oral-presentation.md) · [Editable slide sources](docs/presentation/README.md)
+
 ## 繁體中文導覽
 
 本專題為圖形識別課程的期末專題，使用 MATLAB 建立人臉影像性別辨識系統，並比較四種特徵降維與分類器組合的辨識效能及計算成本。
