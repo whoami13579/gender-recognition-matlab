@@ -43,6 +43,7 @@ This Pattern Recognition final project uses MATLAB to build a gender recognition
 | MLP Classifier | [多層感知器分類器](docs/zh-TW/mlp-classifier.md) | [MLP classifier](docs/en/mlp-classifier.md) |
 | Evaluation and Benchmarking | [評估指標與效能量測](docs/zh-TW/evaluation-and-benchmarking.md) | [Evaluation and benchmarking](docs/en/evaluation-and-benchmarking.md) |
 | Cross-Validation Experiments | [交叉驗證實驗](docs/zh-TW/cross-validation-experiments.md) | [Cross-validation experiments](docs/en/cross-validation-experiments.md) |
+| Final Training and Independent Testing | [最終訓練與獨立測試](docs/zh-TW/final-training-and-testing.md) | [Final training and independent testing](docs/en/final-training-and-testing.md) |
 
 ### MATLAB setup
 
@@ -92,6 +93,15 @@ matlab -wait -batch "setup; run_cross_validation('train');"
 matlab -wait -batch "setup; run_cross_validation('train',struct('Mode','nested'));"
 ```
 
+Freeze the Issue #11 training-only recommendations, fit on all 200 training images, and save four reload-verified models.
+
+```powershell
+matlab -wait -batch "setup; run_final_training('train');"
+matlab -wait -batch "setup; run_independent_testing('results/final-evaluation/run-REPLACE-ME','test');"
+```
+
+Use the saved training run directory printed by the first command. The second command reports a pending official evaluation if the configured test directory is absent. Use `loadFinalModels(trainingRunDirectory)` to reuse the saved pipelines.
+
 | Path | Purpose |
 |---|---|
 | `setup.m`, `run_tests.m` | MATLAB path setup and test entry point |
@@ -103,8 +113,9 @@ matlab -wait -batch "setup; run_cross_validation('train',struct('Mode','nested')
 | `src/classifiers/mlp/` | MLP fitting and prediction |
 | `src/pipelines/` | Reusable pipelines, shared five-fold runner, and training-only model selection |
 | `src/evaluation/` | Shared metrics, parameter summaries, benchmark timing, and result export |
+| `src/final/` | Model persistence, bundle validation, and saved independent result plotting |
 | `scripts/` | Executable analysis functions |
 | `tests/` | Synthetic MATLAB tests |
 | `docs/en/`, `docs/zh-TW/` | Bilingual requirements and implementation guides |
-| `train/`, `test/` | Local datasets. Analysis reads only the supplied training directory. |
+| `train/`, `test/` | Local datasets. Independent testing opens its supplied directory after verifying the saved training bundle. |
 | `results/` | Ignored directory for local generated outputs |

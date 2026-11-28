@@ -81,6 +81,14 @@ for idx = 1:numel(rows)
     end
     rows(idx).ROCValid = result.ROC.Valid;
     rows(idx).ROCStatus = result.ROC.Status;
+    rows(idx).NumCorrect = result.NumCorrect;
+    rows(idx).NumIncorrect = result.NumEvaluationSamples - result.NumCorrect;
+    rows(idx).NumNegativeSamples = result.ROC.NumNegativeSamples;
+    rows(idx).NumPositiveSamples = result.ROC.NumPositiveSamples;
+    rows(idx).TN = result.ConfusionMatrix(1, 1);
+    rows(idx).FP = result.ConfusionMatrix(1, 2);
+    rows(idx).FN = result.ConfusionMatrix(2, 1);
+    rows(idx).TP = result.ConfusionMatrix(2, 2);
     rows(idx).ClassifierFitSeconds = timingValue(timing.Training.Classifier, 'MedianSeconds');
     rows(idx).PipelineFitSeconds = timingValue(timing.Training.Pipeline, 'MedianSeconds');
     rows(idx).ClassifierInferenceSeconds = timingValue(timing.Inference.Classifier, 'MedianSeconds');
@@ -89,6 +97,7 @@ for idx = 1:numel(rows)
     if isempty(timing.Inference.Pipeline)
         rows(idx).InferenceBatchSize = timingValue(timing.Inference.Classifier, 'BatchSize');
     end
+    rows(idx).ClassifierInferenceSecondsPerSample = timingValue(timing.Inference.Classifier, 'SecondsPerSample');
     rows(idx).PipelineInferenceSecondsPerSample = timingValue(timing.Inference.Pipeline, 'SecondsPerSample');
 end
 summary = struct2table(rows, 'AsArray', true);
