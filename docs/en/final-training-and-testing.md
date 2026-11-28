@@ -51,4 +51,19 @@ Fit timings use fresh fits, two warm-ups and five measured repeats, and retain t
 
 Under the ignored `results/final-evaluation/run-…/` directory, `training-summary.csv` and `training-metadata.json` hold fit measurements. Each `independent-test/attempt-…/` contains its own status metadata and, when complete, the evaluation JSON/CSV, local predictions MAT file and figures in PNG and vector PDF. Incomplete attempts retain an `.incomplete` suffix. Keep the entire output tree local. Real images, detailed integrity records, fingerprints, paths, identifiers, scores, ROC thresholds, predictions and model coefficients are private.
 
-Issue #11 measured 100% mean accuracy and 1.000 mean AUC in both cross-validation runs. The held-out set is the basis for independent accuracy and AUC comparisons. Small, potentially homogeneous course datasets limit generalization claims, and the classifier predicts supplied course labels. Facial appearance cannot establish gender identity.
+## Verified official training run
+
+The final fit ran from clean revision `984e14d` in MATLAB R2026a Update 5 on Windows with a six-thread limit, matching the Issue #11 timing setup. The completed nested run from revision `91c6d5e` supplied the recommendations. Its decoded training fingerprint matched the official training folder, and all four saved winners matched the final selection evidence.
+
+All four methods used 200 decoded RGB `uint8` images at 640 × 640 × 3. There were 100 images per class, 200 unique sample IDs, and 50 filename-derived subject IDs per class with two images per ID. The audit found zero exact duplicates, zero conflicting labels, zero duplicates crossing the recorded outer folds, and zero nonexact pairs meeting the thumbnail RMSE threshold. The thumbnail diagnostic uses antialiased bilinear resizing and covered 19,900 image pairs. These observations do not establish real-world identity independence.
+
+| Method | Features | Projection | Normalization | Classifier | Combined | Classifier fit (ms) | Pipeline fit (ms) | MAT bytes |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| PCA + Bayes | 10 | 45,056 | 0 | 131 | 45,187 | 0.5338 | 695.7095 | 353,830 |
+| LDA + Bayes | 1 | 8,192 | 0 | 4 | 8,196 | 0.1665 | 733.0585 | 125,945 |
+| PCA + MLP | 20 | 86,016 | 40 | 353 | 86,409 | 239.9194 | 901.7660 | 674,523 |
+| LDA + MLP | 1 | 8,192 | 2 | 25 | 8,219 | 150.2264 | 787.4883 | 131,204 |
+
+All four models preserved their fitted state, 16 verification labels and continuous scores exactly, with maximum absolute and relative score differences of zero and unchanged global RNG state. LDA + Bayes had the smallest classifier and the shortest classifier fit. PCA + Bayes had the shortest full-pipeline fit in this run.
+
+The configured `test/` directory was absent. The local attempt recorded `unavailable` after the bundle passed verification, with zero methods evaluated and no test load timestamp. Official accuracy, ROC, AUC, confusion matrices and inference timings are pending. Synthetic tests verified evaluation, integrity rejection, export/reload and figure reconstruction. Issue #11 measured 100% mean accuracy and 1.000 mean AUC in both cross-validation runs. An independent comparison, including any MLP benefit or effect of the reduced PCA dimensions, requires the held-out images. Small, potentially homogeneous course datasets limit generalization claims, and the classifier predicts supplied course labels. Facial appearance cannot establish gender identity.
