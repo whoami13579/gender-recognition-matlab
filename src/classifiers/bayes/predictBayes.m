@@ -11,41 +11,97 @@ end
 
 logPriorOdds = diff(log(bayesModel.Priors));
 factors = bayesModel.CovarianceFactors;
-logDeterminants = bayesModel.LogDeterminants(factorIndex);
-if isequal(bayesModel.ClassMeans(1, :), bayesModel.ClassMeans(2, :)) && ...
-        isequal(factors(:, :, factorIndex(1)), factors(:, :, factorIndex(2))) && ...
-        logDeterminants(1) == logDeterminants(2)
-    % Identical likelihoods cancel everywhere, including far from the mean.
-    scores = repmat(logPriorOdds, size(Z, 1), 1);
+L0 = factors(:, :, factorIndex(1));
+L1 = factors(:, :, factorIndex(2));
+mu0 = bayesModel.ClassMeans(1, :);
+mu1 = bayesModel.ClassMeans(2, :);
+Z = double(Z);
+if isempty(Z)
+    scores = zeros(0, 1);
+elseif isequal(L0, L1)
+    if isequal(mu0, mu1)
+        % Identical likelihoods cancel everywhere, including far from the mean.
+        scores = repmat(logPriorOdds, size(Z, 1), 1);
+    else
+        scores = affineLogOdds(Z, mu0, mu1, L0, diagonal) + logPriorOdds;
+    end
 else
-    distances = zeros(size(Z, 1), 2);
-    Z = double(Z);
-    for c = 1:2
-        centered = Z - bayesModel.ClassMeans(c, :);
-        if any(~isfinite(centered), 'all')
-            error('genderRecognition:BayesNumericalRange', 'Centering exceeded the double precision range.');
-        end
-        factor = factors(:, :, factorIndex(c));
-        if diagonal
-            whitened = centered ./ factor;
-        else
-            whitened = centered / factor.';
-        end
-        distances(:, c) = sum(whitened.^2, 2);
-        if any(~isfinite(distances(:, c))) || ...
-                any(distances(:, c) == 0 & any(centered ~= 0, 2))
-            error('genderRecognition:BayesNumericalRange', ...
-                'A squared Mahalanobis distance overflowed or underflowed.');
-        end
-    end
-    % Compute g1 - g0 term by term. The common K*log(2*pi) term cancels,
-    % and large common distances cannot erase a smaller prior term.
-    scores = -0.5 * diff(distances, 1, 2) - 0.5 * diff(logDeterminants) + logPriorOdds;
-    if any(~isfinite(scores))
-        error('genderRecognition:BayesNumericalRange', 'The log odds exceeded the double precision range.');
-    end
+    logDeterminants = bayesModel.LogDeterminants(factorIndex);
+    scores = quadraticLogOdds(Z, mu0, mu1, L0, L1, diagonal) - ...
+        0.5 * diff(logDeterminants) + logPriorOdds;
 end
+checkFinite(scores, 'Log odds');
 yPred = double(scores > 0);
+end
+
+function scores = affineLogOdds(Z, mu0, mu1, L, diagonal)
+% Equal covariance cancels the common quadratic and log determinant terms.
+delta = mu1 - mu0;
+deltaScale = 1;
+if any(~isfinite(delta))
+    % Solve for half the direction if the mean difference would overflow.
+    delta = mu1 / 2 - mu0 / 2;
+    deltaScale = 2;
+end
+direction = whiten(delta, L, diagonal);
+if diagonal
+    direction = direction ./ L;
+else
+    direction = direction / L;
+end
+direction = direction * deltaScale;
+checkFinite(direction, 'Affine direction');
+active = direction ~= 0;
+if ~any(active) || (diagonal && any(~active & delta ~= 0))
+    error('genderRecognition:BayesNumericalRange', 'The affine direction underflowed.');
+end
+
+midpoint = (mu0 + mu1) / 2;
+overflowed = ~isfinite(midpoint);
+midpoint(overflowed) = mu0(overflowed) / 2 + mu1(overflowed) / 2;
+centered = Z(:, active) - midpoint(active);
+checkFinite(centered, 'Affine centering');
+scores = centered * direction(active).';
+end
+
+function scores = quadraticLogOdds(Z, mu0, mu1, L0, L1, diagonal)
+w0 = whiten(Z - mu0, L0, diagonal);
+w1 = whiten(Z - mu1, L1, diagonal);
+difference = w0 - w1;
+magnitude = max(abs(w0), abs(w1));
+% Outside this range the subtraction amplifies relative errors by at most four.
+recover = magnitude > 0 & abs(difference) <= magnitude / 2;
+rows = any(recover, 2);
+if any(rows)
+    % (w0-w1)*L1' = w0*(L1-L0)' + (mu1-mu0). Recover small differences
+    % from the factors, including mean shifts rounded away in w0 or w1.
+    delta = mu1 - mu0;
+    if diagonal
+        residual = w0(rows, :) .* (L1 - L0) + delta;
+    else
+        residual = w0(rows, :) * (L1 - L0).' + delta;
+    end
+    recovered = whiten(residual, L1, diagonal);
+    difference(recover) = recovered(recover(rows, :));
+end
+average = 0.5 * w0 + 0.5 * w1;
+scores = sum(difference .* average, 2);
+end
+
+function values = whiten(rows, L, diagonal)
+checkFinite(rows, 'Whitening input');
+if diagonal
+    values = rows ./ L;
+else
+    values = rows / L.';
+end
+checkFinite(values, 'Whitened features');
+end
+
+function checkFinite(values, operation)
+if any(~isfinite(values), 'all')
+    error('genderRecognition:BayesNumericalRange', '%s exceeded the double precision range.', operation);
+end
 end
 
 function [factorIndex, diagonal] = validateModel(model)

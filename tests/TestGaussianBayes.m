@@ -187,6 +187,150 @@ classdef TestGaussianBayes < matlab.unittest.TestCase
             end
         end
 
+        function preservesEqualCovarianceScoresWithLargeIrrelevantFeature(testCase)
+            Z = [-1 -1; -1 1; 1 -1; 1 1];
+            y = [0; 0; 1; 1];
+            for mode = ["shared" "full" "diagonal"]
+                model = fitBayes(Z, y, struct('CovarianceType', mode));
+                savedModel = model;
+                [labels, scores] = predictBayes(model, [1 1e10; 1 0]);
+                testCase.verifyEqual(labels, [1; 1]);
+                testCase.verifyEqual(scores, [400; 400], 'AbsTol', 1e-10);
+
+                queries = single([-1 1e30; 0 -1e30; 0.5 1e30; -0.5 0]);
+                [labels, scores] = predictBayes(model, queries);
+                testCase.verifyEqual(labels, [0; 0; 1; 0]);
+                testCase.verifyEqual(scores, [-400; 0; 200; -200], 'AbsTol', 1e-10);
+                for i = 1:size(queries, 1)
+                    [label, score] = predictBayes(model, queries(i, :));
+                    testCase.verifyEqual(label, labels(i));
+                    testCase.verifyEqual(score, scores(i), 'AbsTol', 1e-12);
+                end
+                [emptyLabels, emptyScores] = predictBayes(model, zeros(0, 2, 'single'));
+                testCase.verifyEqual(emptyLabels, zeros(0, 1));
+                testCase.verifyEqual(emptyScores, zeros(0, 1));
+                testCase.verifyEqual(model, savedModel);
+            end
+        end
+
+        function matchesCorrelatedSharedAffineReferenceWithUnequalPriors(testCase)
+            R = [-1 -2; -1 0; 1 0; 1 2];
+            Z = [R + [-1 2]; repmat(R + [3 -2], 2, 1)];
+            y = [zeros(4, 1); ones(8, 1)];
+            queries = [1 0; 4 2; -2 -1; -1 5; 3 -4];
+            for rho = [0.01 0.4]
+                config = struct('CovarianceType', "shared", 'Regularization', rho);
+                model = fitBayes(Z, y, config);
+                % For covariance [a 1; 1 b] and mean difference [4; -4],
+                % the two affine coefficients follow by eliminating variables.
+                a = 1 + 1.5 * rho;
+                b = 2 + 1.5 * rho;
+                expected = (4*(b+1)*(queries(:, 1)-1) - 4*(a+1)*queries(:, 2)) / (a*b-1) + log(2);
+                [labels, scores] = predictBayes(model, queries);
+                testCase.verifyEqual(scores, expected, 'AbsTol', 1e-12);
+                testCase.verifyEqual(labels, double(expected > 0));
+                testCase.verifyEqual(scores(1), log(2), 'AbsTol', 1e-14);
+            end
+        end
+
+        function preservesUnivariateEqualVarianceScoresInFarTails(testCase)
+            y = [0; 0; 1; 1];
+            queries = [1e200; 0; -1e200; 0.125];
+            for mode = ["shared" "full" "diagonal"]
+                model = fitBayes([-3; -1; 1; 3], y, struct('CovarianceType', mode));
+                [labels, scores] = predictBayes(model, queries);
+                % Means are -2 and 2 and the common ML variance is 1 + 0.01.
+                testCase.verifyEqual(scores, queries * (4/1.01), 'RelTol', 1e-14);
+                testCase.verifyEqual(labels, [1; 0; 0; 1]);
+            end
+        end
+
+        function handlesExtremeEqualCovarianceMeanArithmetic(testCase)
+            y = [0; 0; 1; 1];
+            for means = [-1e308 1.2e308; 1e308 1.6e308]
+                Z = [repelem(means, 2) [ -1; 1; -1; 1] * 1e153];
+                model = fitBayes(Z, y, struct('CovarianceType', "shared"));
+                midpoint = means(1)/2 + means(2)/2;
+                if midpoint == 0
+                    informative = [-2; 2];
+                else
+                    informative = midpoint + [-1; 1] * eps(midpoint);
+                end
+                % The first variance is entirely ridge, equal to 0.005 * 1e306.
+                slope = (means(2)/5e303 - means(1)/5e303);
+                expected = (informative - midpoint) * slope;
+                [labels, scores] = predictBayes(model, [informative [1e250; -1e250]]);
+                testCase.verifyEqual(scores, expected, 'RelTol', 2e-14);
+                testCase.verifyEqual(labels, [0; 1]);
+            end
+        end
+
+        function cancelsCommonFeatureWithUnequalCovariances(testCase)
+            Z = [-2 -1; -2 1; 0 -1; 0 1; 0 -1; 0 1; 4 -1; 4 1];
+            y = [zeros(4, 1); ones(4, 1)];
+            queries = [2 1e10; 2 0; -1 1e200; -1 0];
+            for mode = ["full" "diagonal"]
+                model = fitBayes(Z, y, struct('CovarianceType', mode));
+                alpha = 0.01 * 1.75;
+                v0 = 1 + alpha;
+                v1 = 4 + alpha;
+                x = queries(:, 1);
+                expected = 0.5 * ((x+1).^2/v0 - (x-2).^2/v1 - log(v1/v0));
+                [labels, scores] = predictBayes(model, queries);
+                testCase.verifyEqual(scores, expected, 'AbsTol', 1e-12);
+                testCase.verifyEqual(labels, [1; 1; 0; 0]);
+            end
+        end
+
+        function preservesMeanEvidenceAcrossEqualFactorComponents(testCase)
+            Z = [-1 -2; -1 0; 1 -2; 1 0; -2 0; -2 2; 2 0; 2 2];
+            y = [zeros(4, 1); ones(4, 1)];
+            queries = [0 1e20; 0 -1e20; 0 0];
+            alpha = 0.01 * 1.75;
+            expected = 2 * queries(:, 2) / (1 + alpha) - 0.5 * log((4 + alpha)/(1 + alpha));
+            for mode = ["full" "diagonal"]
+                model = fitBayes(Z, y, struct('CovarianceType', mode));
+                [labels, scores] = predictBayes(model, queries);
+                testCase.verifyEqual(scores, expected, 'RelTol', 2e-14);
+                testCase.verifyEqual(labels, [1; 0; 0]);
+            end
+        end
+
+        function retainsSmallUnequalVarianceSignal(testCase)
+            r = 1 + 2^-30;
+            Z = [-1; 1; -r; r];
+            y = [0; 0; 1; 1];
+            queries = [0; 1e10; 2e10];
+            varianceDifference = (r - 1) * (r + 1);
+            v0 = 1 + 0.01 * (1 + r^2) / 2;
+            v1 = v0 + varianceDifference;
+            expected = 0.5 * (queries.^2 * (varianceDifference / (v0*v1)) - log(1 + varianceDifference/v0));
+            for mode = ["full" "diagonal"]
+                model = fitBayes(Z, y, struct('CovarianceType', mode));
+                testCase.verifyNotEqual(model.CovarianceFactors(:, :, 1), model.CovarianceFactors(:, :, 2));
+                [labels, scores] = predictBayes(model, queries);
+                testCase.verifyEqual(scores, expected, 'RelTol', 5e-7);
+                testCase.verifyEqual(labels, [0; 1; 1]);
+                testCase.verifyGreaterThan(diff(scores), zeros(2, 1));
+            end
+        end
+
+        function preservesSeparatedWhitenedValuesWithVeryUnequalVariances(testCase)
+            Z = [-1; 1; 1];
+            y = [0; 0; 1];
+            rho = 1e-42;
+            v1 = rho * 2/3;  % Class 1 is a singleton, so its variance is just the ridge.
+            v0 = 1 + v1;
+            expected = 0.5 * (1/v0 - log(v1/v0)) + log(1/2);
+            for mode = ["full" "diagonal"]
+                config = struct('CovarianceType', mode, 'Regularization', rho);
+                model = fitBayes(Z, y, config);
+                [label, score] = predictBayes(model, 1);
+                testCase.verifyEqual(label, 1);
+                testCase.verifyEqual(score, expected, 'AbsTol', 1e-13);
+            end
+        end
+
         function supportsSingleEmptyAndExtremeValidScales(testCase)
             [Z, y] = correlatedFeatures();
             queries = [1 3; 3 0; -2 1];
@@ -290,7 +434,13 @@ classdef TestGaussianBayes < matlab.unittest.TestCase
                 struct('Regularization', realmin)), 'genderRecognition:BayesCovarianceFactorization');
             model = fitBayes([-1; 1; 2; 4], y);
             testCase.verifyError(@() predictBayes(model, realmax), id);
-            testCase.verifyError(@() predictBayes(model, 1e-200), id);
+            % The class-0 squared distance underflows, but the affine log odds
+            % use the common variance 1.01 and midpoint 1.5 without squaring.
+            [label, score] = predictBayes(model, 1e-200);
+            testCase.verifyEqual(label, 0);
+            testCase.verifyEqual(score, 3 * (1e-200 - 1.5) / 1.01, 'AbsTol', 1e-14);
+            unequal = fitBayes([-1; 1; 2; 6], y);
+            testCase.verifyError(@() predictBayes(unequal, 1e200), id);
         end
 
         function integratesPcaAndLdaOnSubjectGroupedPngs(testCase)
