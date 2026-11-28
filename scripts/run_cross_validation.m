@@ -101,23 +101,7 @@ subjectCounts = [nnz(y(first) == 0), nnz(y(first) == 1)];
 shapes = unique([samples.Height samples.Width samples.Channels], 'rows');
 official = isequal(classCounts, [100 100]) && isequal(subjectCounts, [50 50]) && ...
     all(imageCounts == 2) && isequal(shapes, [640 640 3]);
-digest = java.security.MessageDigest.getInstance('SHA-256');
-for idx = 1:numel(images)
-    % Length is implied by shape and type. Pixel bytes use little-endian order.
-    header = sprintf('%s\n%d %d %d %s\n', samples.Filename(idx), ...
-        samples.Height(idx), samples.Width(idx), samples.Channels(idx), samples.PixelType(idx));
-    digest.update(typecast(unicode2native(header, 'UTF-8'), 'int8'));
-    pixels = images{idx}(:);
-    [~, ~, endian] = computer;
-    if endian == 'B' && ~islogical(pixels)
-        pixels = swapbytes(pixels);
-    end
-    if islogical(pixels)
-        pixels = uint8(pixels);
-    end
-    digest.update(typecast(pixels, 'int8'));
-end
-fingerprint = lower(string(reshape(dec2hex(typecast(digest.digest(), 'uint8'), 2).', 1, [])));
+fingerprint = fingerprintDecodedDataset(images, samples);
 repoTraining = fullfile(root, 'train');
 isRepositoryPath = isfolder(repoTraining) && strcmp(path, realDirectory(repoTraining));
 dataset = struct('RepositoryTrainingPath', isRepositoryPath, 'MatchesExpectedProfile', official, ...

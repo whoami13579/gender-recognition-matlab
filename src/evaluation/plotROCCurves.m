@@ -15,6 +15,7 @@ previousNextPlot = ax.NextPlot;
 restoreNextPlot = onCleanup(@() set(ax, 'NextPlot', previousNextPlot));
 hold(ax, 'on');
 plot(ax, [0 1], [0 1], 'k--', 'DisplayName', 'Random ranking');
+styles = ["-", "--", "-.", ":"];
 for idx = 1:numel(results)
     result = results(idx);
     if ~result.ROC.Valid
@@ -25,7 +26,8 @@ for idx = 1:numel(results)
     if result.EvaluationStage == "cross-validation"
         name = name + " fold " + result.FoldNumber;
     end
-    plot(ax, result.ROC.FPR, result.ROC.TPR, 'LineWidth', 1.5, ...
+    style = styles(mod(idx - 1, numel(styles)) + 1);
+    plot(ax, result.ROC.FPR, result.ROC.TPR, 'LineStyle', style, 'LineWidth', 1.5, ...
         'DisplayName', sprintf('%s (AUC %.3f)', name, result.AUC));
 end
 xlim(ax, [0 1]);
