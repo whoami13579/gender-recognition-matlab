@@ -3,5 +3,5 @@ function setup
 root = fileparts(mfilename('fullpath'));
 addpath(fullfile(root, 'src', 'data'), fullfile(root, 'src', 'validation'), ...
     fullfile(root, 'src', 'features', 'pca'), fullfile(root, 'src', 'features', 'lda'), ...
-    fullfile(root, 'scripts'));
+    fullfile(root, 'src', 'classifiers', 'bayes'), fullfile(root, 'scripts'));
 end
