@@ -56,10 +56,21 @@ if ~any(active) || (diagonal && any(~active & delta ~= 0))
     error('genderRecognition:BayesNumericalRange', 'The affine direction underflowed.');
 end
 
+mu0 = mu0(active);
+mu1 = mu1(active);
 midpoint = (mu0 + mu1) / 2;
 overflowed = ~isfinite(midpoint);
 midpoint(overflowed) = mu0(overflowed) / 2 + mu1(overflowed) / 2;
-centered = Z(:, active) - midpoint(active);
+centered = Z(:, active) - midpoint;
+
+% Midpoint rounding can consume half the significant bits of a small gap.
+% Keep the rounding error separately so centering preserves that gap.
+halfGap = (deltaScale / 2) * delta(active);
+closeMeans = halfGap ~= 0 & abs(halfGap) <= (sqrt(eps(1)) / 2) * max(abs(mu0), abs(mu1));
+if any(closeMeans)
+    midpointRoundoff = (midpoint(closeMeans) - mu0(closeMeans)) - halfGap(closeMeans);
+    centered(:, closeMeans) = centered(:, closeMeans) + midpointRoundoff;
+end
 checkFinite(centered, 'Affine centering');
 scores = centered * direction(active).';
 end

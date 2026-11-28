@@ -265,6 +265,91 @@ classdef TestGaussianBayes < matlab.unittest.TestCase
             end
         end
 
+        function preservesAdjacentClassMeanScores(testCase)
+            h = eps(1);
+            Z = [1+h; 1];
+            y = [0; 1];
+            % Singleton classes have zero scatter. With variance rho*h^2/4,
+            % the true squared distance to the other mean contributes 2/rho.
+            for mode = ["shared" "full" "diagonal"]
+                config = struct('CovarianceType', mode);
+                model = fitBayes(Z, y, config);
+                savedModel = model;
+                testCase.verifyEqual(model.EffectiveRegularization, 0.01 * (h^2/4));
+                [labels, scores] = predictBayes(model, Z);
+                testCase.verifyEqual(labels, [0; 1]);
+                testCase.verifyEqual(scores, [-200; 200], 'AbsTol', 1e-10);
+                reversedModel = fitBayes(Z, 1-y, config);
+                [reversedLabels, reversedScores] = predictBayes(reversedModel, Z);
+                testCase.verifyEqual(reversedLabels, [1; 0]);
+                testCase.verifyEqual(reversedScores, -scores, 'AbsTol', 1e-10);
+                testCase.verifyEqual(model, savedModel);
+            end
+        end
+
+        function preservesSmallMeanSeparationsAcrossScales(testCase)
+            offsets = [-1, 2^-400, -2^400, 2^25+0.125];
+            gaps = sign(offsets) .* eps(abs(offsets)) .* [1 1 1 5];
+            y = [0; 1];
+            for i = 1:numel(offsets)
+                Z = [offsets(i); offsets(i)+gaps(i)];
+                model = fitBayes(Z, y);
+                [labels, scores] = predictBayes(model, Z);
+                testCase.verifyEqual(scores, [-200; 200], 'AbsTol', 1e-10);
+                testCase.verifyEqual(labels, y);
+            end
+            model = fitBayes([3; 5], y);
+            [labels, scores] = predictBayes(model, [5; 4; 3]);
+            testCase.verifyEqual(scores, [200; 0; -200], 'AbsTol', 1e-10);
+            testCase.verifyEqual(scores(2), 0);
+            testCase.verifyEqual(labels, [1; 0; 0]);
+        end
+
+        function preservesAdjacentMultivariateScoresWithUnequalPriors(testCase)
+            h = eps(1);
+            Z = [repmat([1+h 0], 3, 1); 1 0];
+            y = [0; 0; 0; 1];
+            queries = [1 1e200; 1+h -1e200; 1 0; 1+h 0];
+            expectedLabels = [1; 0; 1; 0];
+            alpha = 0.01 * (3/4) * (1/4) * h^2 / 2;
+            expected = [1; -1; 1; -1] * (0.5 * (h / sqrt(alpha))^2) + log(1/3);
+            for mode = ["shared" "full" "diagonal"]
+                model = fitBayes(Z, y, struct('CovarianceType', mode));
+                [labels, scores] = predictBayes(model, queries);
+                testCase.verifyEqual(scores, expected, 'AbsTol', 1e-10);
+                testCase.verifyEqual(labels, expectedLabels);
+                for i = 1:size(queries, 1)
+                    [label, score] = predictBayes(model, queries(i, :));
+                    testCase.verifyEqual(label, labels(i));
+                    testCase.verifyEqual(score, scores(i), 'AbsTol', 1e-12);
+                end
+            end
+        end
+
+        function preservesAffineCenteringWhenMeanArithmeticWouldOverflow(testCase)
+            y = [0; 0; 1; 1];
+            within = [-1; 1; -1; 1] * 1e153;
+            offset = 1.2e308;
+            gap = eps(offset);
+            locations = [offset; offset+gap];
+            config = struct('CovarianceType', "shared");
+            model = fitBayes([repelem(locations, 2) within], y, config);
+            % The first variance is the ridge. Divide before squaring the gap.
+            expected = 0.5 * (gap / sqrt(5e303))^2;
+            [labels, scores] = predictBayes(model, [locations [1e250; -1e250]]);
+            testCase.verifyEqual(scores, [-expected; expected], 'RelTol', 2e-14);
+            testCase.verifyEqual(labels, [0; 1]);
+
+            locations = [-9e307; 9e307];
+            config.Regularization = 300;
+            model = fitBayes([repelem(locations, 2) within], y, config);
+            % The mean difference overflows, but the centered score is finite.
+            slope = (locations(2)/1.5e308 - locations(1)/1.5e308);
+            [labels, scores] = predictBayes(model, [locations [1e250; -1e250]]);
+            testCase.verifyEqual(scores, locations * slope, 'RelTol', 2e-14);
+            testCase.verifyEqual(labels, [0; 1]);
+        end
+
         function cancelsCommonFeatureWithUnequalCovariances(testCase)
             Z = [-2 -1; -2 1; 0 -1; 0 1; 0 -1; 0 1; 4 -1; 4 1];
             y = [zeros(4, 1); ones(4, 1)];
