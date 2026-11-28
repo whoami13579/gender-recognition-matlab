@@ -18,6 +18,8 @@
 
 執行 `setup; run_mlp_analysis;` 可查看第 1 折的 PCA + MLP 彙總，或以 `run_mlp_analysis("train", "lda");` 查看 LDA + MLP。用 `fitMLP(ZTrain, yTrain, config)` 擬合，再以 `[yPred, scores] = predictMLP(mlpModel, ZValidation)` 取得預測標籤與女性正類 logit。[多層感知器分類器](docs/zh-TW/mlp-classifier.md)
 
+執行 `setup; run_evaluation_analysis;` 可用合成資料檢查準確率、ROC、AUC、參數量與計時。將本機輸出目錄傳給分析函式即可匯出 JSON 與 CSV。詳見[評估指標與效能量測](docs/zh-TW/evaluation-and-benchmarking.md)。
+
 ## English overview
 
 This Pattern Recognition final project uses MATLAB to build a gender recognition system from face images and compare the recognition performance and computational cost of four feature reduction and classifier combinations.
@@ -37,10 +39,11 @@ This Pattern Recognition final project uses MATLAB to build a gender recognition
 | Fisher LDA Feature Extraction | [Fisher LDA 特徵擷取](docs/zh-TW/fisher-lda-feature-extraction.md) | [Fisher LDA feature extraction](docs/en/fisher-lda-feature-extraction.md) |
 | Gaussian Bayes Classifier | [高斯貝氏分類器](docs/zh-TW/gaussian-bayes-classifier.md) | [Gaussian Bayes classifier](docs/en/gaussian-bayes-classifier.md) |
 | MLP Classifier | [多層感知器分類器](docs/zh-TW/mlp-classifier.md) | [MLP classifier](docs/en/mlp-classifier.md) |
+| Evaluation and Benchmarking | [評估指標與效能量測](docs/zh-TW/evaluation-and-benchmarking.md) | [Evaluation and benchmarking](docs/en/evaluation-and-benchmarking.md) |
 
 ### MATLAB setup
 
-Dataset loading, preprocessing, partitioning, PCA, Fisher LDA, Gaussian Bayes, MLP, and their tests were verified on Windows with MATLAB R2026a Update 5. These modules use base MATLAB.
+Dataset loading, preprocessing, partitioning, PCA, Fisher LDA, Gaussian Bayes, MLP, evaluation, and their tests were verified on Windows with MATLAB R2026a Update 5. These modules use base MATLAB.
 
 Place the local training PNGs directly in `train/`, or pass a different local directory to the analysis functions. Keep datasets, generated artifacts, and private metadata local.
 
@@ -54,6 +57,7 @@ run_pca_analysis;  % Reports whole-training PCA dimensions and explained varianc
 run_lda_analysis;  % Reports whole-training Fisher LDA rank and projected class statistics
 run_bayes_analysis;  % Reports aggregate PCA + Bayes diagnostics for training fold 1
 run_mlp_analysis;  % Reports aggregate PCA + MLP diagnostics for training fold 1
+run_evaluation_analysis;  % Verifies shared evaluation and benchmarking on synthetic data
 run_tests;
 ```
 
@@ -74,6 +78,8 @@ Use `bayesModel = fitBayes(ZTrain, yTrain)` with either PCA or LDA features. Cal
 
 Use `mlpModel = fitMLP(ZTrain, yTrain, config)` with either PCA or LDA features. Call `[yPred, scores] = predictMLP(mlpModel, ZValidation)` for labels and continuous female-class logits. Omit `config` to use the default 16-unit tanh hidden layer. [MLP classifier](docs/en/mlp-classifier.md)
 
+Use `metrics = evaluateClassification(yTrue, yPred, scores)` to evaluate supplied labels and continuous female-class scores. Run `run_evaluation_analysis("results/evaluation-demo")` to export the four synthetic method records to JSON and CSV. [Evaluation and benchmarking](docs/en/evaluation-and-benchmarking.md)
+
 From a terminal with MATLAB on PATH, run the synthetic suite with `matlab -batch "run_tests;"`. The tests create and clean up their own temporary fixtures.
 
 | Path | Purpose |
@@ -85,6 +91,7 @@ From a terminal with MATLAB on PATH, run the synthetic suite with `matlab -batch
 | `src/features/lda/` | Supervised Fisher LDA fitting and projection |
 | `src/classifiers/bayes/` | Gaussian Bayes fitting and prediction |
 | `src/classifiers/mlp/` | MLP fitting and prediction |
+| `src/evaluation/` | Shared metrics, parameter summaries, benchmark timing, and result export |
 | `scripts/` | Executable analysis functions |
 | `tests/` | Synthetic MATLAB tests |
 | `docs/en/`, `docs/zh-TW/` | Bilingual requirements and implementation guides |
