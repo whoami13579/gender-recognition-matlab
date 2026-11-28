@@ -5,18 +5,24 @@ arguments
     trainingRunDirectory (1,1) string
     testingPath (1,1) string = "test"
     options.GeneratePlots (1,1) logical = true
+    options.OutputDirectory (1,1) string = ""
 end
 trainingRunDirectory = finalInternal.resolvePath(trainingRunDirectory);
 % This is the only gate to the test directory, including existence checks.
 [pipelines, ~, frozen, training, trainingIndex, comparison] = finalInternal.readBundle(trainingRunDirectory);
 verifiedUTC = finalInternal.utcNow();
-[directory, staging] = finalInternal.newRun(fullfile(trainingRunDirectory, "independent-test"), "attempt-");
+destination = fullfile(trainingRunDirectory, "independent-test");
+if strlength(options.OutputDirectory) > 0
+    destination = finalInternal.resolvePath(options.OutputDirectory);
+end
+[directory, staging] = finalInternal.newRun(destination, "attempt-");
 metadata = struct('SchemaVersion', 1, 'Status', "incomplete", 'Synthetic', frozen.Synthetic, ...
     'OfficialEvaluation', false, 'TrainingRevision', frozen.RepositoryRevision, ...
     'FrozenUTC', frozen.FrozenUTC, 'TrainingCompletedUTC', training.CompletedUTC, ...
     'BundleVerifiedUTC', verifiedUTC, 'TestingPath', testingPath, 'DatasetLoadedUTC', "", ...
     'TimingUnits', "seconds", 'MATLABVersion', string(version), 'ThreadLimit', maxNumCompThreads, ...
     'TrainingConfigurationSHA256', frozen.ConfigurationSHA256, 'Benchmark', training.Benchmark, ...
+    'ModelManifestSHA256', finalInternal.checksum(fullfile(trainingRunDirectory, "model-manifest.json"), true), ...
     'CompletedMethods', 0, 'BatchSize', [], 'Reason', "", 'ErrorID', "");
 run = struct('OutputDirectory', staging, 'Status', "incomplete", 'Synthetic', frozen.Synthetic, 'Records', struct([]));
 try
