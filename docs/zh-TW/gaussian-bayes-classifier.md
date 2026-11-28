@@ -1,0 +1,129 @@
+# 高斯貝氏分類器
+
+[English](../en/gaussian-bayes-classifier.md) · [專案首頁](../../README.md)
+
+## 貝氏決策法則
+
+對類別 $c$ 與 $K$ 維特徵向量 $z$ 而言，先驗機率 $P(c)$ 是觀察特徵前的類別機率，類別條件概似 $p(z\mid c)$ 是機率密度，後驗機率 $P(c\mid z)=p(z\mid c)P(c)/p(z)$ 是觀察特徵後的類別機率。當兩種誤判的代價相同時，最小錯誤率法則選擇後驗機率較大的類別。比較時，兩類共用的證據項 $p(z)$ 會相消。
+
+高斯模型使用類別平均向量 $\mu_c$ 與正定共變異數矩陣 $\Sigma_c$。馬氏距離平方 $d_c^2=(z-\mu_c)^\top\Sigma_c^{-1}(z-\mu_c)$ 衡量依共變異數尺度調整後的距離。多變量密度為 $(2\pi)^{-K/2}\det(\Sigma_c)^{-1/2}\exp(-d_c^2/2)$。當 $K=1$ 時，共變異數為純量變異數 $\sigma_c^2$，單變量密度為 $\exp(-(z-\mu_c)^2/(2\sigma_c^2))/\sqrt{2\pi\sigma_c^2}$。
+
+分類器比較兩類的高斯對數判別函數。
+
+$$
+g_c(z)=\log P(c)-\tfrac K2\log(2\pi)-\tfrac12\log\det(\Sigma_c)-\tfrac12 d_c^2
+$$
+
+完整共變異數矩陣經 Cholesky 分解可得 $\Sigma_c=L_cL_c^\top$。用 `(Z - mu) / L.'` 解出白化後的特徵列，再將各元素平方加總得到 $d_c^2$，並以 $2\sum_j\log L_{c,jj}$ 取得 $\log\det(\Sigma_c)$。對角模式則逐元素除以標準差。計算 $g_1-g_0$ 時，先取各項的類別差值再加總，共用項 $K\log(2\pi)/2$ 會相消。
+
+分數是擬合模型的對數後驗勝算 $\log[P(1\mid z)/P(0\mid z)]$。分數越高，越支持女性（`1`）。正分預測為 `1`，負分及剛好為零時皆預測為男性（`0`）。每筆分數取決於該列特徵與擬合模型。分布很窄時，直接計算高斯密度可能下溢為零。即使用穩定的 logistic 轉換，不同的對數勝算也可能在接近 0 或 1 時捨入為相同的後驗機率，因此保留對數勝算作為排序依據。介面提供兩個輸出。
+
+## 最大概似估計
+
+若第 $c$ 類有 $N_c$ 筆訓練樣本且 $N=N_0+N_1$，預設經驗先驗機率為 $P(c)=N_c/N$。`"equal"` 將兩類先驗機率固定為 $0.5$。各類的平均值 $\mu_c=\operatorname{mean}(Z_c,1)$ 為該類訓練平均，$R_c$ 為中心化後的列 $Z_c-\mu_c$。類別共變異數 $S_c=R_c^\top R_c/N_c$ 以 $N_c$ 為高斯最大概似估計的分母，不偏樣本共變異數的分母則為 $N_c-1$。合併估計 $S_{\mathrm{pooled}}=(R_0^\top R_0+R_1^\top R_1)/N$ 以 $N$ 為最大概似分母，合併不偏估計則以 $N-2$ 為分母。
+
+| `CovarianceType` | 加入正則化前的估計 | 統計假設 | 獨立共變異數參數量 |
+|---|---|---|---:|
+| `"full"` | 每類各自的 $S_c$ | 各類有自己的完整共變異數矩陣，一般得到二次判別函數 | $K(K+1)$ |
+| `"shared"` | 一個 $S_{\mathrm{pooled}}$ | 兩類共用完整共變異數矩陣，判別函數為線性項加常數 | $K(K+1)/2$ |
+| `"diagonal"` | 各 $S_c$ 的對角元素 | 給定類別後各特徵條件獨立，即高斯樸素貝氏 | $2K$ |
+
+共用共變異數的分類器以投影後的特徵為輸入。Fisher LDA 則是上游的監督式特徵擷取方法，在本專題中產生一維投影座標。
+
+在固定兩類的情況下，使用完整共變異數矩陣的擬合包含共變異數形成、秩診斷及分解，運算量為 $O(NK^2+K^3)$。每筆預測的三角方程組求解需 $O(K^2)$ 運算。對角模式的擬合需 $O(NK)$，每筆評分需 $O(K)$。
+
+## 正則化與數值限制
+
+特徵重複、線性相依或樣本太少時，共變異數估計可能是奇異或近奇異的。各類殘差矩陣的秩最多為 $N_c-1$。某個類別只有一筆資料時，其共變異數估計為零。所有模式都加上 $\alpha I$，對角模式則對各變異數直接加 $\alpha$。共用的正則化量為 $\alpha=\rho s$，其中 $\rho$ 是正的無因次 `Regularization` 係數，$s=\operatorname{tr}(S_{\mathrm{pooled}})/K$。
+
+若類內殘差全為零而類別平均不同，則改用 $s=w_0w_1\lVert\mu_1-\mu_0\rVert^2/K$。即使固定先驗為相等機率，此處仍使用訓練比例 $w_c=N_c/N$。在此情形下，這等於各特徵總變異數的平均。若兩類訓練列皆為相同常數，類內及類間尺度均為零，約定以輸入單位的平方計取 $s=1$。兩類的概似相同，對任何有限的特徵列皆可相消，只留下已擬合的先驗勝算。
+
+擬合時檢查共變異數、正則化量與因子的數值範圍，預測時檢查中心化、距離平方及分數。若無法取得正定分解，則回報 `genderRecognition:BayesCovarianceFactorization`。數值溢位，或正的變異數、正則化量或完整距離平方下溢為零時，回報 `genderRecognition:BayesNumericalRange`。實作直接使用設定的正則化係數。預設值用於數值驗證。LDA 訓練特徵的類內變異很小，依此比例得到的正則化量仍可能很小。數值穩定本身無法保證泛化、機率校準或所選共變異數型式及正則化量的優劣。
+
+## 介面與模型欄位
+
+```matlab
+setup;
+config = struct('CovarianceType', "full", 'PriorType', "empirical", ...
+    'Regularization', 1e-2);  % 預設值
+bayesModel = fitBayes(ZTrain, yTrain, config);
+[yPred, scores] = predictBayes(bayesModel, ZValidation);
+```
+
+每列代表一筆樣本，每欄代表一項特徵。擬合接受完整、實數、有限的 $N\times K$ 單精度或雙精度矩陣，且至少有一欄、兩類均有樣本。標籤為對應的 $N\times1$ 雙精度欄向量，只能包含 0 與 1。數值運算使用雙精度。預測要求特徵欄數等於擬合時的欄數，並依輸入順序回傳兩個雙精度欄向量。$0\times K$ 輸入會得到兩個 $0\times1$ 欄向量。設定僅接受上述三個欄位及區分大小寫的有效選項。未知欄位、不合法的輸入或預測所需的模型狀態會回報 `genderRecognition:...` 錯誤。
+
+| 模型欄位 | 內容 |
+|---|---|
+| `ClassLabels`、`ClassCounts`、`Priors` | 類別順序 `[0 1]`、訓練樣本數及估計或固定的先驗機率 |
+| `ClassMeans` | $2\times K$ 的訓練平均矩陣 |
+| `CovarianceType`、`Covariances`、`CovarianceFactors`、`LogDeterminants` | 型式以及儲存的各個已正則化共變異數、因子與對數行列式。完整模式為 $K\times K\times2$，共用模式使用一個 $K\times K$ 矩陣，對角模式以 $1\times K\times2$ 儲存變異數或標準差。 |
+| `CovarianceRanks` | 加入正則化之前的數值秩，順序與共變異數的儲存順序相同 |
+| `RegularizationCoefficient`、`EffectiveRegularization`、`CovarianceScale`、`CovarianceScaleSource` | $\rho$、$\alpha$、$s$ 及尺度來源 `"withinClass"`、`"betweenClass"` 或 `"constant"` |
+| `NumTrainingSamples`、`NumFeatures`、`NumClassifierParameters`、`Options` | 訓練樣本數、輸入維度、獨立參數量及實際設定 |
+
+獨立參數量為兩類平均值的 $2K$，加上表列的共變異數參數量，再加上經驗先驗的一個參數，因為兩類機率和為一。固定相等先驗增加零個參數。此計數描述所選共變異數假設下的模型結構。對稱重複元素、分解因子、對數行列式、固定正則化係數、衍生診斷值及中繼資料皆不增加獨立擬合參數。投影係數另由特徵模型的 `NumFittedParameters` 回報。
+
+| 型式 | 經驗先驗的公式 | $K=1$ 經驗／相等 | $K=40$ 經驗／相等 |
+|---|---|---:|---:|
+| 完整 | $K^2+3K+1$ | 5 / 4 | 1,721 / 1,720 |
+| 共用 | $2K+K(K+1)/2+1$ | 4 / 3 | 901 / 900 |
+| 對角 | $4K+1$ | 5 / 4 | 161 / 160 |
+
+## 在受試者分組的訓練子集上擬合
+
+```matlab
+[images, y, subjectIDs] = loadDataset("train");
+folds = createFolds(y, subjectIDs);
+iTrain = folds(1).TrainIndices;
+iValidation = folds(1).ValidationIndices;
+prep = fitPreprocessor(images(iTrain));
+XTrain = transformImages(prep, images(iTrain));
+XValidation = transformImages(prep, images(iValidation));
+yTrain = y(iTrain);
+
+pcaModel = fitPCA(XTrain, struct('NumComponents', 40));
+pcaBayes = fitBayes(transformPCA(pcaModel, XTrain), yTrain);
+[pcaLabels, pcaScores] = predictBayes(pcaBayes, transformPCA(pcaModel, XValidation));
+
+ldaModel = fitLDA(XTrain, yTrain);
+ldaBayes = fitBayes(transformLDA(ldaModel, XTrain), yTrain);
+[ldaLabels, ldaScores] = predictBayes(ldaBayes, transformLDA(ldaModel, XValidation));
+```
+
+先決定切分，再擬合模型。將訓練子集擬合的前處理、投影及分類器套用於保留資料。預測不需要驗證標籤。共變異數型式與正則化設定也應獨立於保留資料決定。
+
+## 正式訓練資料的數值驗證
+
+```matlab
+setup;
+run_bayes_analysis;  % 本機 train/，預設採 PCA 與第 1 折
+run_bayes_analysis("train", "lda", struct('CovarianceType', "full"));
+run_bayes_analysis("train", "pca", struct(), struct('NumComponents', 40), struct(), 1);
+```
+
+可選的第 4、5、6 個引數依序提供投影設定、前處理設定及代表折次。此工具以秒記錄分類器擬合及單一批次的驗證預測時間，兩項時間皆不含載入、前處理及投影。工具僅回傳及顯示數值彙總。
+
+本機正式訓練資料共 200 張 640 × 640 × 3 的 RGB 影像，每類各 100 張。預設前處理產生 64 × 64 灰階影像和數值位於 [0, 1] 的 200 × 4,096 雙精度特徵。依預設受試者分組後，第 1 折包含 160 張擬合影像（80／80）及 40 張驗證影像（20／20），兩組的受試者識別碼無重疊。兩次執行皆使用各類獨立的完整共變異數矩陣、先驗 [0.5, 0.5] 及 $\rho=0.01$。
+
+| 第 1 折觀察結果 | PCA + Bayes | LDA + Bayes |
+|---|---:|---:|
+| 降維後訓練／驗證矩陣大小 | 160 × 40 / 40 × 40 | 160 × 1 / 40 × 1 |
+| 類別平均／各類共變異數矩陣大小 | 2 × 40 / 40 × 40 | 2 × 1 / 1 × 1 |
+| 正則化前的秩 [男, 女] | [40, 40] | [1, 1] |
+| 成功的 Cholesky 分解 | 2/2 | 2/2 |
+| 類內共變異數尺度 $s$ | 2.75740801 | 1.17513355e−6 |
+| 實際正則化量 $\alpha$ | 0.0275740801 | 1.17513355e−8 |
+| 分類器參數量／儲存的擬合投影係數量 | 1,721 / 167,936 | 5 / 8,192 |
+| 預測標籤／分數大小 | 40 × 1 / 40 × 1 | 40 × 1 / 40 × 1 |
+| 有限分數／相異分數數量 | 40/40 / 40 | 40/40 / 40 |
+| 分數範圍 | [−373.84718, 2281.29189] | [−6839418.22, 11777179.7] |
+| 預測類別數 [男, 女] | [20, 20] | [20, 20] |
+| 分類器擬合／40 筆批次預測（秒） | 0.029393 / 0.010145 | 0.011338 / 0.003726 |
+
+時間為本機單次量測。兩種投影逐筆預測與批次預測的排序相同。僅在記憶體中修改驗證影像的像素後，驗證分數改變，所有擬合狀態完全相同。這次驗證用單一折檢查數值行為，獨立測試集未使用。
+
+## 測試與講義對照
+
+在儲存庫根目錄執行 `matlab -batch "run_tests;"`。84 項測試全數通過，包括既有 67 項及新加入的 17 項高斯貝氏測試。合成測試使用獨立的高斯參考計算，涵蓋奇異及極小變異數、參數量、分數排序與平手處理，並以暫存 PNG 驗證 PCA、LDA 整合及資料分離。驗證環境為 Windows 上的 MATLAB R2026a Update 5（26.1.0.3346908），僅需基礎 MATLAB。
+
+已在本機核對合併講義 PDF。第 2 章 §§2.2–2.6 涵蓋貝氏機率、最小錯誤率決策、高斯密度與高斯判別函數（PDF 第 74–84、86–115、117–126、128–141、143–179 頁）。講義比較共用球形、共用完整及任意類別相依的共變異數矩陣。本專題另外提供各類獨立的對角共變異數假設。第 3 章 §3.2（第 195–221 頁）說明最大概似估計，以及擬合平均值所造成的共變異數估計偏差。第 268–272 頁討論擬合成本、對稱矩陣的相異元素，以及樣本不足時的奇異估計。正則化尺度及備援、Cholesky 計算與對數後驗勝算輸出均為本專題的實作選擇。[講義對照與系統架構](lecture-reference.md)
